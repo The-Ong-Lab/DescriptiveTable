@@ -45,25 +45,24 @@ adj_pct <- function(x,y){
 }
 
 combined_tbl <- function(y, vars, data, stat='mean'){
-  # # # # # # # # # # # # # # # # # # #
+  #-----------------------------------------------------------------------------
+  # Function designed to create semi-customized Table 1s, with counts for both  
+  # total cohort and stratified groups.
   #
-  # Function designed to create semi-customizable Table 1s, with counts for both total 
-  # and stratified cohorts.
+  # y: str, name of column in the supplied data frame by which you would like to  
+  #    stratify. Note that we should have type(data$y) == factor
   #
-  # y: str, name of column in the supplied dataframe by which you would like to stratify. 
-  #    Note that we should have type(data$y) == factor
+  # vars: vector of column names for the covariates of interest. Columns for the  
+  #       co-variates should be either numeric, integer, or factor.
   #
-  # vars: vector of column names for the covariates of interest. Columns for the covariates 
-  #       should be either numeric, integer, or factor.
-  #
-  # data: dataframe containing columns y and vars.
+  # data: data frame containing columns y and vars.
   #
   # NOTE: This function will spit out a raw, ugly table. The user will need to manually edit
   # the table after the function is run to put it in a more presentable format. I recommend
   # using the "kable" and "kableExtra" libraries to knit beautiful HTML and PDF tables. See
   # their respective documentation for more information.
   # 
-  # # # # # # # # # # # # # # # # # # #
+  #-----------------------------------------------------------------------------
   
   d <- y
   y <- data[[y]]
@@ -79,101 +78,89 @@ combined_tbl <- function(y, vars, data, stat='mean'){
 
   ## iterate through the list of variables provided
   for (i in 1:length(vars)) {
-    x <- data[[vars[i]]]
     
-    ## dummy line for headers
-    if(vars[i] == "")
-    {
-      df <- rbind(df, c('temp', rep('', 5)))
-    }
+    if( !vars[i] %in% colnames(data) ){
+      print(paste0('The variable ',vars[i],' was not found in the dataframe.'))
+    } 
     else {
-    ## numeric and integer variables
-    if (class(x)=='numeric' | class(x)=='integer') {
-      u <- round(mean(x, na.rm = T), 1)
-      stdev <- round(sd(x, na.rm = T), 1)
-      out.row <- c(vars[i], paste0(u,' (', stdev,')'))
-      for (j in 1:length(levels(y))) {
-        lvl <- levels(y)[j]
-        u <- round(mean(x[which(y==lvl)], na.rm = T), 1)
-        stdev <- round(sd(x[which(y==lvl)], na.rm = T), 1)
-        out <- paste0(u, ' (', stdev, ')')
-        out.row <- c(out.row, out)
-      }
+      x <- data[[vars[i]]]
       
-      ## determine the appropriate statistical test to use
-      if (length(levels(y)) == 2){
-        ## t-test
-        pval <- pval_format(t.test(x[ which(y==levels(y)[1]) ], x[ which(y==levels(y)[2]) ])$p.value)
-        out.row <- c(out.row, pval)
-      } else if (length(levels(y)) > 2) { 
-        ## anova
-        pval <- pval_format(summary(aov(x~y))[[1]]$'Pr(>F)'[1])
-        out.row <- c(out.row, pval)
-      }
-      df <- rbind(df, out.row)
-      
-      ## factor variables
-    } else if (class(x)=='factor') {
-      n_tbl <- table(x, y)
-      pval <- pval_format(chisq.test(n_tbl)$p.value)
-      
-      if ( identical(levels(x), c('0','1')) ){
-        if(vars[i] == 'sex')
-        {
-          n <- length(which(x=='0'))
-          pct_tbl <- round((n_tbl[1,]/o_tbl)*100, 1)
-          out.row <- c(vars[i], paste0(n, ' (',round(n/N, 3)*100, '%)'),
-                       paste0(n_tbl[1,], ' (', pct_tbl, '%)'),
-                       pval)
-          df <- rbind(df, out.row)
-        }else{
-          if(grepl('Discharge', vars[i], fixed = TRUE)) {
-            n <- length(which(x=='1'))
-            totalDis <- length(which(data[['dis']] == 1))
-            pct_tbl <- round((n_tbl[2,]/o_tbl)*100, 1)
-            out.row <- c(vars[i], paste0(n, ' (',round(n/totalDis, 3)*100, '%)'),
-                         paste0(n_tbl[2,], ' (', pct_tbl, '%)'),
-                         pval)
-            df <- rbind(df, out.row)
-          }
-          else
-          {
-          n <- length(which(x=='1'))
-          pct_tbl <- round((n_tbl[2,]/o_tbl)*100, 1)
-          out.row <- c(vars[i], paste0(n, ' (',round(n/N, 3)*100, '%)'),
-                       paste0(n_tbl[2,], ' (', pct_tbl, '%)'),
-                       pval)
-          df <- rbind(df, out.row)}
+      ## numeric and integer variables
+      if (class(x)=='numeric' | class(x)=='integer') {
+        u <- round(mean(x, na.rm = T), 1)
+        stdev <- round(sd(x, na.rm = T), 1)
+        out.row <- c(vars[i], paste0(u,' (', stdev,')'))
+        for (j in 1:length(levels(y))) {
+          lvl <- levels(y)[j]
+          u <- round(mean(x[which(y==lvl)], na.rm = T), 1)
+          stdev <- round(sd(x[which(y==lvl)], na.rm = T), 1)
+          out <- paste0(u, ' (', stdev, ')')
+          out.row <- c(out.row, out)
         }
-      } else {
         
-        totVal <- length(which(!is.na(x)))
-        ndata <- subset(data, !is.na(x)) 
-        t_tbl <- table(ndata[[d]])
-        
-        if(totVal < N) {
-          out.row <- c(vars[i], paste0(totVal, ' (',round(totVal/N, 3)*100, '%)'),
-                       paste0(t_tbl, ' (', round(t_tbl/o_tbl,3)*100, '%)'), 
-                       pval)
-        }else{
-          out.row <- c(vars[i],
-                       rep('', 1 + length(levels(y))), pval)
+        ## determine the appropriate statistical test to use
+        if (length(levels(y)) == 2){
+          ## t-test
+          pval <- pval_format(t.test(x[ which(y==levels(y)[1]) ], x[ which(y==levels(y)[2]) ])$p.value)
+          out.row <- c(out.row, pval)
+        } else if (length(levels(y)) > 2) { 
+          ## anova
+          pval <- pval_format(summary(aov(x~y))[[1]]$'Pr(>F)'[1])
+          out.row <- c(out.row, pval)
         }
         df <- rbind(df, out.row)
         
-        for (j in 1:length(levels(x))) {
-          lvl <- levels(x)[j]
-          n <- length(which(x==lvl))
-          pct_tbl <- round((n_tbl[j,]/t_tbl)*100, 1)
-          out.row <- c(paste0( levels(x)[j]), paste0(n, ' (',round(n/totVal, 3)*100, '%)'),
-                       paste0(n_tbl[j,], ' (', pct_tbl, '%)'),
-                       '')
+
+      } 
+      else if (class(x)=='factor') {
+        n_tbl <- table(x, y)
+        pval <- pval_format(chisq.test(n_tbl)$p.value)
+        
+        if ( identical(levels(x), c('0','1')) ){
+            n <- length(which(x=='1'))
+            pct_tbl <- round((n_tbl[2,]/o_tbl)*100, 1)
+            out.row <- c(vars[i], paste0(n, ' (',round(n/N, 3)*100, '%)'),
+                         paste0(n_tbl[2,], ' (', pct_tbl, '%)'),
+                         pval)
+            df <- rbind(df, out.row)
+            }
+          
+        else {
+          
+          totVal <- length(which(!is.na(x)))
+          ndata <- subset(data, !is.na(x)) 
+          t_tbl <- table(ndata[[d]])
+          
+          if(totVal < N) {
+            out.row <- c(vars[i], paste0(totVal, ' (',round(totVal/N, 3)*100, '%)'),
+                         paste0(t_tbl, ' (', round(t_tbl/o_tbl,3)*100, '%)'), 
+                         pval)
+          }else{
+            out.row <- c(vars[i],
+                         rep('', 1 + length(levels(y))), pval)
+          }
           df <- rbind(df, out.row)
-        }}}}}
+          
+          for (j in 1:length(levels(x))) {
+            lvl <- levels(x)[j]
+            n <- length(which(x==lvl))
+            pct_tbl <- round((n_tbl[j,]/t_tbl)*100, 1)
+            out.row <- c(paste0( levels(x)[j]), paste0(n, ' (',round(n/totVal, 3)*100, '%)'),
+                         paste0(n_tbl[j,], ' (', pct_tbl, '%)'),
+                         '')
+            df <- rbind(df, out.row)
+          }}}
+      else {
+        print(paste0('Variable ',vars[i], 'is neither numeric or a factor.'))
+      }
+    }
+  }
   
   ## rename the table columns
-  names(df) <- c('Variable', 'Count(%)/Mean(SD)',levels(y), 'p-value')}
-  if (stat=='median'){
+  names(df) <- c('Variable', 'Count(%)/Mean(SD)',levels(y), 'p-value')
+  
+  } 
+  else if (stat=='median'){
     
     ## iterate through the list of variables provided
     for (i in 1:length(vars)) {
@@ -205,15 +192,7 @@ combined_tbl <- function(y, vars, data, stat='mean'){
           }
           
           ## determine the appropriate statistical test to use
-          # if (length(levels(y)) == 2){
-          #   ## t-test
-          #   pval <- pval_format(t.test(x[ which(y==levels(y)[1]) ], x[ which(y==levels(y)[2]) ])$p.value)
-          #   out.row <- c(out.row, pval)
-          # } else if (length(levels(y)) > 2) { 
-          #   ## anova
-          #   pval <- pval_format(summary(aov(x~y))[[1]]$'Pr(>F)'[1])
-          #   out.row <- c(out.row, pval)
-          # }
+          # To do...
           
           df <- rbind(df, out.row)
           
@@ -223,34 +202,14 @@ combined_tbl <- function(y, vars, data, stat='mean'){
           pval <- pval_format(chisq.test(n_tbl)$p.value)
           
           if ( identical(levels(x), c('0','1')) ){
-            if(vars[i] == 'sex')
-            {
-              n <- length(which(x=='0'))
-              pct_tbl <- round((n_tbl[1,]/o_tbl)*100, 1)
-              out.row <- c(vars[i], paste0(n, ' (',round(n/N, 3)*100, '%)'),
-                           paste0(n_tbl[1,], ' (', pct_tbl, '%)'),
-                           pval)
-              df <- rbind(df, out.row)
-            }else{
-              if(grepl('Discharge', vars[i], fixed = TRUE)) {
-                n <- length(which(x=='1'))
-                totalDis <- length(which(data[['dis']] == 1))
-                pct_tbl <- round((n_tbl[2,]/o_tbl)*100, 1)
-                out.row <- c(vars[i], paste0(n, ' (',round(n/totalDis, 3)*100, '%)'),
-                             paste0(n_tbl[2,], ' (', pct_tbl, '%)'),
-                             pval)
-                df <- rbind(df, out.row)
-              }
-              else
-              {
                 n <- length(which(x=='1'))
                 pct_tbl <- round((n_tbl[2,]/o_tbl)*100, 1)
                 out.row <- c(vars[i], paste0(n, ' (',round(n/N, 3)*100, '%)'),
                              paste0(n_tbl[2,], ' (', pct_tbl, '%)'),
                              pval)
-                df <- rbind(df, out.row)}
+                df <- rbind(df, out.row)
             }
-          } else {
+          else {
             
             totVal <- length(which(!is.na(x)))
             ndata <- subset(data, !is.na(x)) 
@@ -277,7 +236,11 @@ combined_tbl <- function(y, vars, data, stat='mean'){
             }}}}}
     
     ## rename the table columns
-    names(df) <- c('Variable', 'Count(%)/Median(Q1-Q3)',levels(y))}
+    names(df) <- c('Variable', 'Count(%)/Median(Q1-Q3)',levels(y))
+  } 
+  else {
+    print("Argument provided for 'stat' not recognised. Please choose either 'mean' or 'median'.")
+  }
   return(df)
 }
 
@@ -438,194 +401,3 @@ mvlr_tbl <- function(sumTbl){
   
   return(out)
 }
-
-#### Artifact Functions ####
-
-# occurence_tbl <- function(vars, data){
-#   # # # # # # # # # # # # # # # # # # #
-#   #
-#   # Function that builds and returns a 
-#   # rough "Table One".  Gives counts and
-#   # percentages of the full population 
-#   # for categorical variables. Give mean
-#   # and standard deviation for numeric
-#   # variables. 
-#   #
-#   # Arguments:
-#   # vars - vector of variables names to 
-#   #        include in the table. (Note: if
-#   #        if one of the variable names is
-#   #        not in the data frame, it is 
-#   #        skipped over.
-#   # data - the data frame containing the
-#   #        variables.
-#   #
-#   # # # # # # # # # # # # # # # # # # #
-#   
-#   ## initialize the empty df
-#   df <- data.frame(matrix(ncol = 3, nrow = 0))
-#   N <- nrow(data)
-#   
-#   ## add a row for the total population count
-#   out.row <- c('Total', as.character(N), '-')
-#   df <- rbind(df, out.row)
-#   
-#   ## iterate through the supplied list of variables
-#   for (i in 1:length(vars)){
-#     x <- data[[vars[i]]]
-#     
-#     ## for dichotomous/categorical/ordinal variables
-#     if (class(x)=='factor'){
-#       
-#       ## dichotomous
-#       if (identical(levels(x), c('0','1'))){ 
-#         if(as.character(vars[i]) == 'sex'){
-#           n <- length(which(x=='0'))
-#           out.row <- c(vars[i], n, paste0(round(n/N, 3)*100, '%'))
-#           df <- rbind(df, out.row)
-#         }
-#         else{
-#           n <- length(which(x=='1'))
-#           out.row <- c(vars[i], n, paste0(round(n/N, 3)*100, '%'))
-#           df <- rbind(df, out.row)
-#         }
-#       } else {
-#         
-#         ## ordinal/nominal
-#         m <- length(which(!is.na(x)))
-#         if(m < N) {
-#           out.row <- c(vars[i], m, paste0(round(m/N, 3)*100, '%') )
-#         }
-#         else {
-#           out.row <- c(vars[i], '', '')
-#         }
-#         df <- rbind(df, out.row)
-#         
-#         for (j in 1:length(levels(x))){ 
-#           lvl <- levels(x)[j]
-#           n <- length(which(x==lvl))
-#           out.row <- c(lvl, n, paste0(round(n/m, 3)*100, '%'))
-#           df <- rbind(df, out.row)}
-#       }
-#       
-#       ## for numeric/integer variables
-#     } else if (class(x)=='numeric' | class(x)=='integer'){
-#       u <- round(mean(x, na.rm = T), 1)
-#       stdev <- round(sd(x, na.rm = T), 1)
-#       out.row <- c(vars[i], paste0(u,' (', stdev,')'), '-')
-#       df <- rbind(df, out.row)
-#     }
-#   }
-#   
-#   ## Give appropriate names to the table columns
-#   names(df) <- c('Variable', 'Count / Mean (StDev)', 'Percentage')
-#   return(df)
-# }
-# 
-# stratified_tbl <- function(y, vars, data){
-#   # # # # # # # # # # # # # # # # # # #
-#   #
-#   # Function that builds and returns a 
-#   # table of occurances stratified by
-#   # one of the outcome variables. Gives 
-#   # counts and percentages of the full 
-#   # population for categorical variables. 
-#   # Gives mean and standard deviation 
-#   # for numeric variables. 
-#   #
-#   # Arguments:
-#   # y - outcome variable on which the 
-#   #     table will be stratified
-#   # vars - vector of variables names to 
-#   #        include in the table. (Note: if
-#   #        if one of the variable names is
-#   #        not in the data frame, it is 
-#   #        skipped over.
-#   # data - the data frame containing the
-#   #        variables.
-#   #
-#   # # # # # # # # # # # # # # # # # # #
-#   
-#   d <- y
-#   y <- data[[y]]
-#   o_tbl <- table(y) ## get counts of patients in each stratum
-#   N <- nrow(data)
-#   
-#   ## set up empty table, add total row
-#   df <- data.frame(matrix(ncol = 2+length(levels(y)), nrow = 0))
-#   out.row <- c('Total', paste0(o_tbl, ' (', round(o_tbl/N,3)*100, '%)'), '-')
-#   df <- rbind(df, out.row)
-#   
-#   ## iterate through the list of variables provided
-#   for (i in 1:length(vars)) {
-#     x <- data[[vars[i]]]
-#     
-#     ## numeric and integer variables
-#     if (class(x)=='numeric' | class(x)=='integer') {
-#       out.row <- c(vars[i])
-#       for (j in 1:length(levels(y))) {
-#         lvl <- levels(y)[j]
-#         u <- round(mean(x[which(y==lvl)], na.rm = T), 1)
-#         stdev <- round(sd(x[which(y==lvl)], na.rm = T), 1)
-#         out <- paste0(u, ' (', stdev, ')')
-#         out.row <- c(out.row, out)
-#       }
-#       
-#       ## determine the appropriate statistical test to use
-#       if (length(levels(y)) == 2){
-#         ## t-test
-#         pval <- pval_format(t.test(x[ which(y==levels(y)[1]) ], x[ which(y==levels(y)[2]) ])$p.value)
-#         out.row <- c(out.row, pval)
-#       } else if (length(levels(y)) > 2) { 
-#         ## anova
-#         pval <- pval_format(summary(aov(x~y))[[1]]$'Pr(>F)'[1])
-#         out.row <- c(out.row, pval)
-#       }
-#       df <- rbind(df, out.row)
-#       
-#       ## factor variables
-#     } else if (class(x)=='factor') {
-#       n_tbl <- table(x, y)
-#       pval <- pval_format(chisq.test(n_tbl)$p.value)
-#       
-#       if ( identical(levels(x), c('0','1')) ){
-#         if(vars[i] == 'sex')
-#         {
-#           pct_tbl <- round((n_tbl[1,]/o_tbl)*100, 1)
-#           out.row <- c(vars[i], 
-#                        paste0(n_tbl[1,], ' (', pct_tbl, '%)'),
-#                        pval)
-#           df <- rbind(df, out.row)
-#         }else{
-#           pct_tbl <- round((n_tbl[2,]/o_tbl)*100, 1)
-#           out.row <- c(vars[i], 
-#                        paste0(n_tbl[2,], ' (', pct_tbl, '%)'),
-#                        pval)
-#           df <- rbind(df, out.row)
-#         }
-#       } else {
-#         
-#         totVal <- length(which(!is.na(x)))
-#         ndata <- subset(data, !is.na(x)) 
-#         t_tbl <- table(ndata[[d]])
-#         
-#         if(totVal < N) {
-#           out.row <- c(vars[i], paste0(t_tbl, ' (', round(t_tbl/o_tbl,3)*100, '%)'), 
-#                        pval)
-#         }else{
-#           out.row <- c(vars[i], rep('', length(levels(y))), pval)
-#         }
-#         df <- rbind(df, out.row)
-#         for (j in 1:length(levels(x))) {
-#           pct_tbl <- round((n_tbl[j,]/t_tbl)*100, 1)
-#           out.row <- c(paste0( levels(x)[j]),
-#                        paste0(n_tbl[j,], ' (', pct_tbl, '%)'),
-#                        '')
-#           df <- rbind(df, out.row)
-#         }}}}
-#   
-#   ## rename the table columns
-#   names(df) <- c('Variable', levels(y), 'p-value')
-#   
-#   return(df)
-# }

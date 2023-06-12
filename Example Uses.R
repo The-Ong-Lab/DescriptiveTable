@@ -1,5 +1,10 @@
 #will need to load table functions and its dependent libraries
-library(...)
+library(tidyverse)
+library(magrittr)
+library(lubridate)
+library(kableExtra)
+library(nnet) #multinomial log-reg model
+source('Table Formatting Functions.R')
 
 #load data
 df <- mtcars
