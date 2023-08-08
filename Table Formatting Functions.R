@@ -288,9 +288,9 @@ univar_numeric <- function(df, y, xcols){
         ci.975 <- round(ci.975, 2)
 
         row.out <- c(row.out,
-                     or,
-                     ci.025,
-                     ci.975)
+                     bet,
+                     std,
+                     pval)
       }
       
       else #more than two levels
@@ -322,7 +322,7 @@ univar_numeric <- function(df, y, xcols){
   }
   
   ## rename the table columns
-  names(tab.out) <- c( 'Variable', rep(c('Beta', 'StDev','p-value'), length(levels(df[[y]]))-1 ))
+  names(tab.out) <- c( 'Variable', rep(c('OR','CI 2.50%', 'CI 97.5%'), length(levels(df[[y]]))-1 ))
   
   return(tab.out)
 }
@@ -374,6 +374,74 @@ univar_factor <- function(df, y, xcols){
         
         r <- c(r, or_format, round(ci[j,1,k],2), round(ci[j,2,k],2))}
       tab.out[nrow(tab.out) + 1,] <- r}}
+  }
+  
+  ## rename the table columns
+  names(tab.out) <- c( 'Variable', rep(c('OR','CI 2.50%', 'CI 97.5%'), length( sum.out$lev )-1) )
+  
+  return(tab.out)
+}
+
+univar_analysis <- function(df, y, xcols){
+  ## create an empty table
+  y_name <- y
+  y <- df[[y_name]]
+  width <- if( is.null(levels(y)) ){3 +1} else {3*( length(levels(y))-1 )+1}
+  tab.out <- data.frame(matrix(ncol = width, nrow = 0))
+  
+  ## iterate through the list of predictor variables
+  for (i in 1:length(xcols)){
+    
+    #**********************************************
+    break('IN DEVELOPMENT. FUNCTION INCOMPLETE.')
+    #**********************************************
+    
+    x_name <- xcols[i]
+    x <- df[[x_name]]
+    
+      ## if the supplied variable isnt a factor type, make it one
+      if (class(x) == 'character' | class(x) == 'factor'){
+        x <- as.factor(x)
+        x_lvls <- levels(x)
+      }
+        
+        tab.out[nrow(tab.out) + 1, ] <- c( x_name, rep('', width-1) )
+        
+        ## run a regression with the outcome y with the predictor x
+        if( class(y) %in% c('numeric','integer') & !identical(unique(y), c(0,1)) ){ 
+          #linear regression
+          mod.out <- lm(y ~ x)
+        } 
+        else if ( length(levels(y)) == 2 | identical(unique(y), c(0,1)) ){
+          ## log reg
+          mod.out <- glm(y ~ x, family = binomial())
+        }
+        else if ( levels(y) > 2 ){
+          ## multinom log reg
+          mod.out <- multinom(y ~ x, trace=F)
+        }
+        
+        sum.out <- summary(mod.out)
+        bet <- sum.out$coefficients
+        std <- sum.out$standard.errors
+        or <- exp(coef(mod.out))
+        ci <- exp(confint(mod.out))
+        
+        ## iterate through the levels of the outcome
+        for (j in 2:length(lvls)){
+          r <- c(lvls[j])
+          ## iterate through the levels of the predictor
+          for ( k in 1:(length( sum.out$lev )-1) ){
+            pval <- p(bet[k,j], std[k,j])
+            or_format <- round(or[k,j],2)
+            if (pval < 0.05){
+              or_format <- paste0(or_format, '*')}
+            
+            r <- c(r, or_format, round(ci[j,1,k],2), round(ci[j,2,k],2))}
+          tab.out[nrow(tab.out) + 1,] <- r}
+  
+      
+      
   }
   
   ## rename the table columns
