@@ -1,5 +1,6 @@
-## Author: Jack Pohlmann
+## Author: Jack Pohlmann, Yili Du
 ## Date: July 19th, 2023
+## Updated Date: Nov 17, 2023
 
 
 #### Package Dependencies####
@@ -114,7 +115,16 @@ combined_tbl <- function(y, vars, data, stat='mean'){
       } 
       else if (class(x)=='factor') {
         n_tbl <- table(x, y)
+
+    ## Check if Fisher's Exact Test is needed
+    expected_counts <- chisq.test(n_tbl, simulate.p.value = FALSE)$expected
+    if (any(expected_counts < 5)) {
+    ## Perform Fisher's Exact Test
+        pval <- pval_format(fisher.test(n_tbl)$p.value)
+    } else {
+        # Perform Chi-Squared Test
         pval <- pval_format(chisq.test(n_tbl)$p.value)
+    }
         
         if ( identical(levels(x), c('0','1')) ){
             n <- length(which(x=='1'))
